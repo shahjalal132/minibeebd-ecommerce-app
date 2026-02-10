@@ -39,7 +39,10 @@
         [data-layout-color="light"] .content-page *{ color:#111; }
 
         .ml-12{
-            margin-left: 12% !important;
+            margin-left: 17% !important;
+        }
+        .ml-12{
+            margin-left: 17% !important;
         }
 
         /* Desktop: content push so nothing gets cut */

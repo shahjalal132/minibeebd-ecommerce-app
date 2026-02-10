@@ -938,7 +938,25 @@ class CheckoutController extends Controller
             ], 422);
         }
 
-        $productContent = $honeyPage->content['product'];
+            $productContent = $honeyPage->content['product'];
+
+        // #region agent log
+        $logFile = '/home/jalal/laravel-projects/minibeebd/.cursor/debug.log';
+        $logData = [
+            'id' => 'log_' . time() . '_' . uniqid(),
+            'timestamp' => time() * 1000,
+            'location' => 'CheckoutController.php:honeyCheckout',
+            'message' => 'Price calculation start',
+            'data' => [
+                'honeyPage_regular_price' => $productContent['regular_price'] ?? null,
+                'honeyPage_offer_price' => $productContent['offer_price'] ?? null,
+                'product_id' => $productContent['product_id'] ?? null,
+            ],
+            'runId' => 'run1',
+            'hypothesisId' => 'A'
+        ];
+        file_put_contents($logFile, json_encode($logData) . "\n", FILE_APPEND);
+        // #endregion
 
         DB::beginTransaction();
         try {
@@ -981,24 +999,83 @@ class CheckoutController extends Controller
                     $variationId = $variation->id;
                 }
 
-                // Price calculation with priority
-                $baseFinalPrice = (isset($product->after_discount) && $product->after_discount > 0)
-                    ? (float) $product->after_discount
-                    : (float) $product->sell_price;
+                // #region agent log
+                $logData2 = [
+                    'id' => 'log_' . time() . '_' . uniqid(),
+                    'timestamp' => time() * 1000,
+                    'location' => 'CheckoutController.php:honeyCheckout',
+                    'message' => 'Product model prices',
+                    'data' => [
+                        'product_sell_price' => $product->sell_price ?? null,
+                        'product_after_discount' => $product->after_discount ?? null,
+                    ],
+                    'runId' => 'run1',
+                    'hypothesisId' => 'A'
+                ];
+                file_put_contents($logFile, json_encode($logData2) . "\n", FILE_APPEND);
+                // #endregion
 
-                $finalPrice = $baseFinalPrice;
-                $basePriceForDiscount = (float) $product->sell_price;
-
-                // Variation price priority
-                if ($variation) {
-                    if (!empty($variation->discount_price) && $variation->discount_price > 0) {
-                        $finalPrice = (float) $variation->discount_price;
-                        $basePriceForDiscount = (float) $variation->price;
-                    } elseif (!empty($variation->price) && $variation->price > 0) {
-                        $finalPrice = (float) $variation->price;
-                        $basePriceForDiscount = (float) $variation->price;
+                // Price calculation with priority: Honey page offer_price takes precedence
+                // First check if honey page has offer_price or regular_price
+                $honeyPageOfferPrice = !empty($productContent['offer_price']) ? (float) $productContent['offer_price'] : null;
+                $honeyPageRegularPrice = !empty($productContent['regular_price']) ? (float) $productContent['regular_price'] : null;
+                
+                // Honey page prices have highest priority - use them if available
+                if ($honeyPageOfferPrice !== null && $honeyPageOfferPrice > 0) {
+                    // Use honey page offer_price (highest priority)
+                    $finalPrice = $honeyPageOfferPrice;
+                    $basePriceForDiscount = $honeyPageRegularPrice ?? (float) $product->sell_price;
+                } elseif ($honeyPageRegularPrice !== null && $honeyPageRegularPrice > 0) {
+                    // Use honey page regular_price if no offer_price
+                    $finalPrice = $honeyPageRegularPrice;
+                    $basePriceForDiscount = (float) $product->sell_price;
+                } else {
+                    // No honey page prices - check variation prices first, then product model
+                    if ($variation) {
+                        if (!empty($variation->discount_price) && $variation->discount_price > 0) {
+                            $finalPrice = (float) $variation->discount_price;
+                            $basePriceForDiscount = (float) $variation->price;
+                        } elseif (!empty($variation->price) && $variation->price > 0) {
+                            $finalPrice = (float) $variation->price;
+                            $basePriceForDiscount = (float) $variation->price;
+                        } else {
+                            // Fall back to product model prices
+                            $baseFinalPrice = (isset($product->after_discount) && $product->after_discount > 0)
+                                ? (float) $product->after_discount
+                                : (float) $product->sell_price;
+                            $finalPrice = $baseFinalPrice;
+                            $basePriceForDiscount = (float) $product->sell_price;
+                        }
+                    } else {
+                        // No variation - use product model prices
+                        $baseFinalPrice = (isset($product->after_discount) && $product->after_discount > 0)
+                            ? (float) $product->after_discount
+                            : (float) $product->sell_price;
+                        $finalPrice = $baseFinalPrice;
+                        $basePriceForDiscount = (float) $product->sell_price;
                     }
                 }
+
+                // #region agent log
+                $logData3 = [
+                    'id' => 'log_' . time() . '_' . uniqid(),
+                    'timestamp' => time() * 1000,
+                    'location' => 'CheckoutController.php:honeyCheckout',
+                    'message' => 'Calculated finalPrice after honey page check (variation overwrite prevented)',
+                    'data' => [
+                        'honeyPageOfferPrice' => $honeyPageOfferPrice,
+                        'honeyPageRegularPrice' => $honeyPageRegularPrice,
+                        'hasVariation' => $variation ? true : false,
+                        'variationPrice' => $variation ? ($variation->price ?? null) : null,
+                        'variationDiscountPrice' => $variation ? ($variation->discount_price ?? null) : null,
+                        'finalPrice' => $finalPrice,
+                        'basePriceForDiscount' => $basePriceForDiscount,
+                    ],
+                    'runId' => 'post-fix-v2',
+                    'hypothesisId' => 'A'
+                ];
+                file_put_contents($logFile, json_encode($logData3) . "\n", FILE_APPEND);
+                // #endregion
 
                 // Check stock if stock management is enabled
                 if ($isStock && $variation) {
@@ -1052,9 +1129,44 @@ class CheckoutController extends Controller
             $totalDiscount = $discountPerUnit * $quantity;
             $subtotal = $finalPrice * $quantity;
 
+            // #region agent log
+            $logData4 = [
+                'id' => 'log_' . time() . '_' . uniqid(),
+                'timestamp' => time() * 1000,
+                'location' => 'CheckoutController.php:honeyCheckout',
+                'message' => 'Final price calculation',
+                'data' => [
+                    'finalPrice' => $finalPrice,
+                    'subtotal' => $subtotal,
+                    'totalDiscount' => $totalDiscount,
+                    'shippingCharge' => $deliveryCharge->amount,
+                ],
+                'runId' => 'run1',
+                'hypothesisId' => 'A'
+            ];
+            file_put_contents($logFile, json_encode($logData4) . "\n", FILE_APPEND);
+            // #endregion
+
             // 5. Calculate Totals
             $shippingCharge = $deliveryCharge->amount;
             $finalAmount = $subtotal + $shippingCharge;
+
+            // #region agent log
+            $logData5 = [
+                'id' => 'log_' . time() . '_' . uniqid(),
+                'timestamp' => time() * 1000,
+                'location' => 'CheckoutController.php:honeyCheckout',
+                'message' => 'Order totals',
+                'data' => [
+                    'finalAmount' => $finalAmount,
+                    'order_amount' => $subtotal, // Fixed: should be subtotal, not subtotal + discount
+                    'totalDiscount' => $totalDiscount,
+                ],
+                'runId' => 'post-fix-v3',
+                'hypothesisId' => 'A'
+            ];
+            file_put_contents($logFile, json_encode($logData5) . "\n", FILE_APPEND);
+            // #endregion
 
             // 6. Assign Worker
             $usrs = DB::table('model_has_roles')->where('role_id', 8)->get();
@@ -1084,7 +1196,7 @@ class CheckoutController extends Controller
                 'shipping_address' => $data['address'],
                 'delivery_charge_id' => $data['delivery_charge_id'],
                 'shipping_charge' => $shippingCharge,
-                'amount' => $subtotal + $totalDiscount,
+                'amount' => $subtotal, // Use subtotal (discounted price), not subtotal + discount
                 'final_amount' => $finalAmount,
                 'discount' => $totalDiscount,
                 'status' => 'pending',

@@ -535,7 +535,7 @@
             <div class="space-y-6">
                 @if ($honeyPage && isset($honeyPage->content['why_buy']['cards']) && is_array($honeyPage->content['why_buy']['cards']))
                     @foreach (array_slice($honeyPage->content['why_buy']['cards'], 0, 2) as $card)
-                        <div class="bg-white p-8 rounded-2xl shadow">
+                        <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow">
                             <div class="flex items-start gap-4">
                                 @if (isset($card['icon']) && $card['icon'])
                                     <div class="flex-shrink-0">
@@ -555,7 +555,7 @@
                     @endforeach
                 @else
                     <!-- Default cards if no data -->
-                    <div class="bg-white p-8 rounded-2xl shadow">
+                    <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow">
                         <div class="flex items-start gap-4">
                             <div class="flex-shrink-0">
                                 <img src="/icons/natural.png" alt="Natural Icon" class="w-12 h-12">
@@ -567,7 +567,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="bg-white p-8 rounded-2xl shadow">
+                    <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow">
                         <div class="flex items-start gap-4">
                             <div class="flex-shrink-0">
                                 <img src="/icons/credit-card.png" alt="Card Icon" class="w-12 h-12">
@@ -604,7 +604,7 @@
             <div class="space-y-6">
                 @if ($honeyPage && isset($honeyPage->content['why_buy']['cards']) && is_array($honeyPage->content['why_buy']['cards']))
                     @foreach (array_slice($honeyPage->content['why_buy']['cards'], 2, 2) as $card)
-                        <div class="bg-white p-8 rounded-2xl shadow">
+                        <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow">
                             <div class="flex items-start gap-4">
                                 @if (isset($card['icon']) && $card['icon'])
                                     <div class="flex-shrink-0">
@@ -624,7 +624,7 @@
                     @endforeach
                 @else
                     <!-- Default cards -->
-                    <div class="bg-white p-8 rounded-2xl shadow">
+                    <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow">
                         <div class="flex items-start gap-4">
                             <div class="flex-shrink-0">
                                 <img src="/icons/package.png" alt="Card Icon" class="w-12 h-12">
@@ -636,7 +636,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="bg-white p-8 rounded-2xl shadow">
+                    <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow">
                         <div class="flex items-start gap-4">
                             <div class="flex-shrink-0">
                                 <img src="/icons/weighing-machine.png" alt="Weight Icon" class="w-12 h-12">
@@ -655,7 +655,7 @@
         <!-- Bottom Card -->
         <div class="flex justify-center mt-8">
             @if ($honeyPage && isset($honeyPage->content['why_buy']['cards']) && count($honeyPage->content['why_buy']['cards']) > 4)
-                <div class="bg-white p-8 rounded-2xl shadow max-w-lg">
+                <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow max-w-lg">
                     <div class="flex items-start gap-4">
                         @if (isset($honeyPage->content['why_buy']['cards'][4]['icon']) && $honeyPage->content['why_buy']['cards'][4]['icon'])
                             <div class="flex-shrink-0">
@@ -675,7 +675,7 @@
                     </div>
                 </div>
             @else
-                <div class="bg-white p-8 rounded-2xl shadow max-w-lg">
+                <div class="bg-white p-8 border border-[#FFC107] rounded-2xl shadow max-w-lg">
                     <div class="flex items-start gap-4">
                         <div class="flex-shrink-0">
                             <img src="/icons/no-chocolate.png" alt="No Chocolate Icon" class="w-12 h-12">
@@ -1087,7 +1087,7 @@
                         <div class="mb-6">
                             @if ($honeyPage && isset($honeyPage->content['product']['image']) && $honeyPage->content['product']['image'])
                                 <img src="{{ asset($honeyPage->content['product']['image']) }}" alt="Product Image"
-                                    class="w-64 h-64 mx-auto md:mx-0 object-cover rounded-xl mb-6">
+                                    class="max-w-full h-auto mx-auto md:mx-0 object-cover rounded-xl mb-6">
                             @endif
                         </div>
                     </div>
@@ -1120,7 +1120,7 @@
                                     <span class="price-cross">৳ {{ number_format($regularPrice, 0) }}</span>
                                 @endif
                                 @if ($offerPrice > 0)
-                                    <span class="font-bold text-honey price-offer">৳
+                                    <span id="final-price" class="font-bold text-honey price-offer">৳
                                         {{ number_format($offerPrice, 0) }}</span>
                                 @endif
                             </div>
@@ -1151,24 +1151,35 @@
             <div class="bg-white p-8 rounded-2xl shadow-lg">
                 <h3 class="text-2xl font-bold mb-6">আপনার তথ্য</h3>
                 <form class="space-y-5">
-                    <input type="text" id="checkoutName" placeholder="নাম"
-                        class="w-full p-4 border-2 rounded-xl text-lg focus:border-honey focus:outline-none">
-                    <input type="text" id="checkoutPhone" placeholder="ফোন"
-                        class="w-full p-4 border-2 rounded-xl text-lg focus:border-honey focus:outline-none">
-                    <textarea id="checkoutAddress" placeholder="ঠিকানা" rows="4"
-                        class="w-full p-4 border-2 rounded-xl text-lg focus:border-honey focus:outline-none"></textarea>
+                    <div>
+                        <label for="checkoutName" class="block mb-2 text-lg font-semibold">নাম <span class="text-red-500">*</span></label>
+                        <input type="text" id="checkoutName" name="name" placeholder="নাম" required
+                            class="w-full p-4 border-2 rounded-xl text-lg focus:border-honey focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="checkoutPhone" class="block mb-2 text-lg font-semibold">ফোন <span class="text-red-500">*</span></label>
+                        <input type="text" id="checkoutPhone" name="phone" placeholder="ফোন" required
+                            class="w-full p-4 border-2 rounded-xl text-lg focus:border-honey focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="checkoutAddress" class="block mb-2 text-lg font-semibold">ঠিকানা <span class="text-red-500">*</span></label>
+                        <textarea id="checkoutAddress" name="address" placeholder="ঠিকানা" rows="4" required
+                            class="w-full p-4 border-2 rounded-xl text-lg focus:border-honey focus:outline-none"></textarea>
+                    </div>
 
                     <!-- Shipping Charge -->
                     <div>
-                        <p class="font-semibold mb-3 text-xl">শিপিং চার্জ</p>
-                        <div class="space-y-3">
+                        <p class="font-semibold mb-3 text-xl">শিপিং চার্জ <span class="text-red-500">*</span></p>
+                        <div id="shippingError" class="hidden text-red-500 text-sm mb-2"></div>
+                        <div class="space-y-3" id="shippingOptions">
                             @foreach ($delivery_charges as $charge)
                                 <label
-                                    class="border-2 p-4 rounded-xl cursor-pointer flex items-center gap-3 hover:border-honey transition-colors">
-                                    <input type="radio" name="shipping" value="{{ $charge->id }}"
+                                    class="border-2 p-4 rounded-xl cursor-pointer flex items-center gap-3 hover:border-honey transition-colors shipping-option">
+                                    <input type="radio" name="shipping" value="{{ $charge->id }}" required
                                         data-amount="{{ $charge->amount }}" data-delivery-charge-id="{{ $charge->id }}"
                                         class="accent-honey"
-                                        onchange="updateTotal(); saveIncompleteOrder();">
+                                        {{ $loop->first ? 'checked' : '' }}
+                                        onchange="updateTotal(); saveIncompleteOrder(); validateShipping();">
                                     <span class="text-lg">{{ $charge->title }} – ৳ {{ $charge->amount }}</span>
                                 </label>
                             @endforeach
@@ -1408,6 +1419,9 @@
             if (screenshotInput) {
                 screenshotInput.addEventListener('change', saveIncompleteOrder);
             }
+
+            // Update total on page load with default selected shipping charge
+            updateTotal();
         });
 
         function updateTotal() {
@@ -1451,23 +1465,106 @@
             }
         }
 
+        function validateShipping() {
+            const shipping = document.querySelector('input[name="shipping"]:checked');
+            const shippingError = document.getElementById('shippingError');
+            const shippingOptions = document.querySelectorAll('.shipping-option');
+            
+            if (!shipping) {
+                if (shippingError) {
+                    shippingError.textContent = 'অনুগ্রহ করে শিপিং চার্জ নির্বাচন করুন';
+                    shippingError.classList.remove('hidden');
+                }
+                shippingOptions.forEach(option => {
+                    option.classList.add('border-red-500');
+                });
+                return false;
+            } else {
+                if (shippingError) {
+                    shippingError.classList.add('hidden');
+                }
+                shippingOptions.forEach(option => {
+                    option.classList.remove('border-red-500');
+                });
+                return true;
+            }
+        }
+
+        function validateFormFields() {
+            const name = document.getElementById('checkoutName')?.value.trim() || '';
+            const phone = document.getElementById('checkoutPhone')?.value.trim() || '';
+            const address = document.getElementById('checkoutAddress')?.value.trim() || '';
+            const nameField = document.getElementById('checkoutName');
+            const phoneField = document.getElementById('checkoutPhone');
+            const addressField = document.getElementById('checkoutAddress');
+            
+            let isValid = true;
+            let errorMessage = '';
+
+            // Remove previous error styling
+            [nameField, phoneField, addressField].forEach(field => {
+                if (field) {
+                    field.classList.remove('border-red-500');
+                }
+            });
+
+            if (!name) {
+                if (nameField) nameField.classList.add('border-red-500');
+                errorMessage += 'নাম প্রয়োজন\n';
+                isValid = false;
+            }
+
+            if (!phone) {
+                if (phoneField) phoneField.classList.add('border-red-500');
+                errorMessage += 'ফোন প্রয়োজন\n';
+                isValid = false;
+            } else if (phone.length !== 11 || !/^\d+$/.test(phone)) {
+                if (phoneField) phoneField.classList.add('border-red-500');
+                errorMessage += 'ফোন নম্বর অবশ্যই ১১ সংখ্যার হতে হবে\n';
+                isValid = false;
+            }
+
+            if (!address) {
+                if (addressField) addressField.classList.add('border-red-500');
+                errorMessage += 'ঠিকানা প্রয়োজন\n';
+                isValid = false;
+            }
+
+            if (!isValid) {
+                alert(errorMessage.trim());
+            }
+
+            return isValid;
+        }
+
         function placeOrder() {
-            const name = document.getElementById('checkoutName')?.value || '';
-            const phone = document.getElementById('checkoutPhone')?.value || '';
-            const address = document.getElementById('checkoutAddress')?.value || '';
+            const name = document.getElementById('checkoutName')?.value.trim() || '';
+            const phone = document.getElementById('checkoutPhone')?.value.trim() || '';
+            const address = document.getElementById('checkoutAddress')?.value.trim() || '';
             const shipping = document.querySelector('input[name="shipping"]:checked');
             const payment = document.querySelector('input[name="payment"]:checked');
 
-            if (!name || !phone || !address || !shipping || !payment) {
-                alert('অনুগ্রহ করে সব তথ্য পূরণ করুন');
+            // Validate form fields
+            if (!validateFormFields()) {
+                return;
+            }
+
+            // Validate shipping
+            if (!validateShipping()) {
+                showToast('error', 'ত্রুটি!', 'অনুগ্রহ করে শিপিং চার্জ নির্বাচন করুন');
+                return;
+            }
+
+            if (!payment) {
+                alert('অনুগ্রহ করে পেমেন্ট পদ্ধতি নির্বাচন করুন');
                 return;
             }
 
             // Validate payment details if online payment
             if (payment.value !== 'cod') {
-                const fromNumber = document.getElementById('fromNumber').value;
-                const transactionId = document.getElementById('transactionId').value;
-                const screenshot = document.getElementById('screenshot').files[0];
+                const fromNumber = document.getElementById('fromNumber')?.value.trim() || '';
+                const transactionId = document.getElementById('transactionId')?.value.trim() || '';
+                const screenshot = document.getElementById('screenshot')?.files[0];
 
                 if (!fromNumber || !transactionId || !screenshot) {
                     alert('অনুগ্রহ করে পেমেন্টের সব তথ্য পূরণ করুন');

@@ -245,10 +245,19 @@ class HoneyLandingPageController extends Controller
                             $productImage = 'products/' . $product->image;
                         }
                         
-                        // Determine prices: regular_price = purchase_prices, offer_price = sell_price
-                        // Note: The column name is 'purchase_prices' (plural) in the database
-                        $regularPrice = !empty($product->purchase_prices) ? (float)$product->purchase_prices : 0;
-                        $offerPrice = !empty($product->sell_price) ? (float)$product->sell_price : 0;
+                        // Determine prices: regular_price = sell_price (original selling price)
+                        // offer_price = after_discount (if exists and > 0) OR sell_price (fallback)
+                        // This ensures discounts are properly displayed
+                        $regularPrice = !empty($product->sell_price) ? (float)$product->sell_price : 0;
+                        
+                        // Use after_discount as offer_price if it exists and is greater than 0
+                        // Otherwise, use sell_price as offer_price (no discount)
+                        $offerPrice = 0;
+                        if (!empty($product->after_discount) && (float)$product->after_discount > 0) {
+                            $offerPrice = (float)$product->after_discount;
+                        } else {
+                            $offerPrice = $regularPrice; // No discount, use sell_price as offer_price
+                        }
                         
                         // Populate product data from existing product
                         $productData['title'] = $product->name;
