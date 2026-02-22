@@ -378,6 +378,156 @@
         .toast-notification.hiding {
             animation: slideOutRight 0.3s ease-in forwards;
         }
+
+        /* Thank You Modal Styles */
+        .thank-you-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Noto Sans Bengali', sans-serif;
+        }
+
+        .thank-you-modal.show {
+            display: flex;
+        }
+
+        .thank-you-modal-content {
+            background: linear-gradient(135deg, #F5F7FA 0%, #FFFFFF 100%);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            position: relative;
+            animation: modalFadeIn 0.3s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .thank-you-modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.1);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .thank-you-modal-close:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .thank-you-icon {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 20px;
+            color: #10b981;
+        }
+
+        .thank-you-title {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #0FA298;
+            margin-bottom: 15px;
+        }
+
+        .thank-you-subtitle {
+            font-size: 2rem;
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+
+        .thank-you-message {
+            color: #555;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            padding: 0 20px;
+        }
+
+        .thank-you-order-number {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+        }
+
+        .thank-you-order-number a {
+            color: #0FA298;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .thank-you-order-number a:hover {
+            text-decoration: underline;
+        }
+
+        .thank-you-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .thank-you-btn {
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-family: 'Noto Sans Bengali', sans-serif;
+        }
+
+        .thank-you-btn-primary {
+            background: #0FA298;
+            color: white;
+        }
+
+        .thank-you-btn-primary:hover {
+            background: #0d8a82;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(15, 162, 152, 0.3);
+        }
+
+        .thank-you-btn-outline {
+            background: transparent;
+            color: #0FA298;
+            border: 2px solid #0FA298;
+        }
+
+        .thank-you-btn-outline:hover {
+            background: #0FA298;
+            color: white;
+            transform: translateY(-2px);
+        }
     </style>
 
     @if (setting('fb_pixel_id'))
@@ -1051,6 +1201,7 @@
                     @endforeach
                 @else
                     <!-- Default FAQ items -->
+                    
                     <div class="opacity-0 animate-fadeIn delay-100">
                         <div class="ornate-border">
                             <div class="ornate-corner top-left"></div>
@@ -1622,10 +1773,17 @@
                             // Ignore errors - backend should handle deletion
                         });
 
-                        showToast('success', 'সফল!', data.msg || 'অর্ডার সফলভাবে সম্পন্ন হয়েছে!');
-                        setTimeout(() => {
-                            window.location.href = data.url;
-                        }, 2000);
+                        // Reset form
+                        document.querySelector('form').reset();
+                        
+                        // Re-enable submit button
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.textContent = 'অর্ডার করুন';
+                        }
+
+                        // Show thank you modal instead of redirecting
+                        showThankYouModal(data.order_id);
                     } else {
                         showToast('error', 'ত্রুটি!', data.msg ||
                             'অর্ডার সম্পন্ন করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
@@ -1644,6 +1802,41 @@
                     }
                 });
         }
+
+        // Thank You Modal Function
+        function showThankYouModal(orderId) {
+            const modal = document.getElementById('thankYouModal');
+            const orderNumberLink = document.getElementById('orderNumberLink');
+            
+            if (orderId) {
+                // Get the base orders URL from data attribute and replace the ID
+                const baseOrdersUrl = modal.getAttribute('data-orders-url');
+                const orderUrl = baseOrdersUrl.replace('/0', '/' + orderId);
+                orderNumberLink.href = orderUrl;
+                orderNumberLink.textContent = '#' + orderId;
+            }
+            
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeThankYouModal() {
+            const modal = document.getElementById('thankYouModal');
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('thankYouModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeThankYouModal();
+                    }
+                });
+            }
+        });
 
         // Toast Notification Function
         function showToast(type, title, message) {
@@ -1681,6 +1874,41 @@
             }, 5000);
         }
     </script>
+
+    <!-- Thank You Modal -->
+    <div id="thankYouModal" class="thank-you-modal" data-orders-url="{{ route('front.orders.show', [0]) }}">
+        <div class="thank-you-modal-content">
+            <button class="thank-you-modal-close" onclick="closeThankYouModal()">×</button>
+            
+            <!-- Success Icon -->
+            <div class="thank-you-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" class="text-success" width="90" height="90" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                </svg>
+            </div>
+
+            <!-- Thank You Text -->
+            <h1 class="thank-you-title">ধন্যবাদ !</h1>
+            <h3 class="thank-you-subtitle">আপনার অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে।</h3>
+            <p class="thank-you-message">
+                আমাদের একজন বিক্রয় প্রতিনিধি শীঘ্রই আপনার সাথে যোগাযোগ করবে অর্ডার নিশ্চিত করার জন্য।
+            </p>
+
+            <!-- Invoice -->
+            <p class="thank-you-order-number">
+                আপনার অর্ডার নম্বর: 
+                <b>
+                    <a id="orderNumberLink" href="#" target="_blank">#</a>
+                </b>
+            </p>
+
+            <!-- Action Buttons -->
+            <div class="thank-you-buttons">
+                <a href="{{ route('front.home') }}" class="thank-you-btn thank-you-btn-primary">হোমে ফিরে যান</a>
+            </div>
+        </div>
+    </div>
 
     <footer class="text-center py-8 bg-yellow-100 text-lg">© 2026 MiniBee Honey. Developed by <a
             href="https://nixsoftware.net" target="_blank" class="text-blue-500 hover:text-blue-700">Nix Software</a>
