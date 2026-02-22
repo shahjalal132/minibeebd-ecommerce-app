@@ -26,33 +26,35 @@ class CheckoutController extends Controller
     public $modulutil;
     public $util;
 
-    public function __construct(ModulUtil $modulutil, Util $util){
+    public function __construct(ModulUtil $modulutil, Util $util)
+    {
 
-        $this->util=$util;
-        $this->modulutil=$modulutil;
+        $this->util = $util;
+        $this->modulutil = $modulutil;
     }
-    
-    public function index(){
+
+    public function index()
+    {
         $cart = session()->get('cart', []);
         if (empty($cart)) {
             return redirect()->route('front.home');
         }
-      
+
         $charges = DeliveryCharge::whereNotNull('status')->get();
-      	
+
         $coupon     = session()->get('coupon_discount');
         $coupn_item = CouponCode::where('amount', $coupon)->first();
-      	
+
         $cart  = session()->get('cart');
         $total = getCouponDiscount();
 
         try {
             $eventId = "IC_" . now()->format('Ymdhi');
-            
+
             $contents   = [];
             $contentIds = [];
             $totalValue = 0;
-            
+
             foreach ($cart as $item) {
                 $contents[] = [
                     'id'         => $item['product_id'],
@@ -62,7 +64,7 @@ class CheckoutController extends Controller
                 $contentIds[] = $item['product_id'];
                 $totalValue  += $item['price'] * $item['quantity'];
             }
-            
+
             FacebookConversion::sendEvent('InitiateCheckout', [
                 'currency'     => 'BDT',
                 'value'        => $totalValue,
@@ -71,7 +73,6 @@ class CheckoutController extends Controller
                 'num_items'    => count($cart),
                 'content_type' => 'product'
             ], $eventId);
-            
         } catch (\Exception $e) {
             \Log::error('Facebook CAPI BeginCheckout Error: ' . $e->getMessage());
         }
@@ -80,47 +81,50 @@ class CheckoutController extends Controller
         foreach ($cart as $item) {
             $totalPrice += $item['price'] * $item['quantity'];
         }
-        
+
         if (($coupn_item) && ($coupon > 0) && ($coupn_item->minimum_amount > $total)) {
-            session()->put('coupon_discount',null);
-            session()->put('discount_type',null);
+            session()->put('coupon_discount', null);
+            session()->put('discount_type', null);
         }
-      
-        return view('frontend.cart.checkout', compact('cart','charges','totalPrice'));
+
+        return view('frontend.cart.checkout', compact('cart', 'charges', 'totalPrice'));
     }
-    
-    public function courierPercentage(Request $request){
+
+    public function courierPercentage(Request $request)
+    {
         $id     = $request->id;
         $number = $request->phone;
 
-        if($id){
+        if ($id) {
             $customer = User::findOrFail($id);
-        
-            if($number){
+
+            if ($number) {
                 $checkCourier = $this->callApi($number);
-                if(isset($checkCourier)){
+                if (isset($checkCourier)) {
                     $customer->curier_summery = $checkCourier;
                     $customer->save();
                 }
             }
         }
     }
-    
-    private function callApi($number){
+
+    private function callApi($number)
+    {
         $info   = Information::first();
         $apiKey = $info->fraudApi;
         $url    = "https://dash.hoorin.com/api/courier/sheet.php?apiKey=$apiKey&searchTerm=$number";
-        
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $response = curl_exec($ch);
         curl_close($ch);
-    
+
         return $response;
     }
-    
-    public function storelandData(Request $request) {
+
+    public function storelandData(Request $request)
+    {
         $data = $request->validate([
             'mobile'             => 'digits_between:11,11',
             'first_name'         => 'required',
@@ -131,27 +135,26 @@ class CheckoutController extends Controller
             'final_amount'       => '',
             'amount'             => ''
         ]);
-       
+
         if (empty(auth()->user()->id)) {
-        	$user = User::create([
+            $user = User::create([
                 'first_name'       => $request->first_name,
                 'mobile'           => $request->mobile,
                 'shipping_address' => $request->shipping_address,
                 'note'             => $request->note
             ]);
             $data['user_id'] = $user->id;
-
         } else {
-        	$data['user_id'] = auth()->user()->id;
+            $data['user_id'] = auth()->user()->id;
         }
 
         $product = Product::with('variations')->where('id', $request->prd_id)->first();
-        
+
         $quantity = $request->quantity;
         $proQty   = ($quantity == null || $quantity == '') ? 1 : $quantity;
-        
+
         $total_discount_val = $proQty * $product['discount'];
-        
+
         $pr_data = [
             'product_id'     => $request->prd_id,
             'quantity'       => $proQty,
@@ -161,58 +164,58 @@ class CheckoutController extends Controller
             'purchase_price' => $product['purchase_prices'],
             'variation_id'   => $request['variation_id']
         ];
-       
+
         $charge = DeliveryCharge::where('id', $data['delivery_charge_id'])->first();
         $charge = $charge ? $charge->amount : 0;
         $data['date'] = date('Y-m-d');
 
         // Order Assign Among Users Start
         $assign_user_id = 1;
-        $users = User::whereHas('roles', function($query){
-                            $query->where('roles.name','Employee');
-                        })->where('status',1)
-                        ->select('id')
-                        ->pluck('id')->toArray();
+        $users = User::whereHas('roles', function ($query) {
+            $query->where('roles.name', 'Employee');
+        })->where('status', 1)
+            ->select('id')
+            ->pluck('id')->toArray();
 
-        $ordering = count($users)-1;
-        if(count($users)==1){
+        $ordering = count($users) - 1;
+        if (count($users) == 1) {
             $assign_user_id = $users[0];
             $data['assign_user_id'] = $assign_user_id;
-        }else if($ordering>0){
+        } else if ($ordering > 0) {
             $order  = Order::latest()->take($ordering)->get()->pluck('assign_user_id')->toArray();
             $output = array_merge(array_diff($order, $users), array_diff($users, $order));
 
-            if(!empty($output)){
+            if (!empty($output)) {
                 $assign_user_id = $output[0];
                 $data['assign_user_id'] = $assign_user_id;
             } else {
                 $data['assign_user_id'] = $assign_user_id;
             }
-        } 
+        }
         // Order Assign Among Users End.
 
-        $data['invoice_no']      = rand(111111,999999);
+        $data['invoice_no']      = rand(111111, 999999);
         $data['discount']        = $total_discount_val;
         $data['shipping_charge'] = $charge;
         $data['courier_id']      = 3;
-        
+
         DB::beginTransaction();
         try {
-            unset($data['payment_method']);       
+            unset($data['payment_method']);
 
             $order = Order::create($data);
 
             if (!empty($pr_data)) {
-			    $order->details()->create($pr_data);
+                $order->details()->create($pr_data);
             }
 
             $this->modulutil->orderPayment($order, $request->all());
             $this->modulutil->orderstatus($order);
 
-            $url = route('front.confirmOrderlanding',[$order->id]);
-            session()->put('cart',[]);
-            session()->put('coupon_discount',null);
-            session()->put('discount_type',null);
+            $url = route('front.confirmOrderlanding', [$order->id]);
+            session()->put('cart', []);
+            session()->put('coupon_discount', null);
+            session()->put('discount_type', null);
 
             DB::commit();
             return response()->json([
@@ -220,20 +223,20 @@ class CheckoutController extends Controller
                 'msg'     => 'Checkout Successfully..!!',
                 'url'     => $url
             ]);
-
         } catch (\Exception $e) {
 
             DB::rollback();
-            return response()->json(['success'=>false,'msg'=>$e->getMessage()]);
+            return response()->json(['success' => false, 'msg' => $e->getMessage()]);
         }
     }
-    
-    public function incompleteStore(Request $request){
+
+    public function incompleteStore(Request $request)
+    {
         $req_data = $request->validate([
             'mobile' => 'required|numeric|min: 11',
             'name'   => 'nullable'
         ]);
-        
+
         if (!empty($request->mobile)) {
             $user = User::updateOrCreate(
                 ['mobile' => $request->mobile],
@@ -243,23 +246,23 @@ class CheckoutController extends Controller
                     'status'     => 1,
                 ]
             );
-        
+
             $data['user_id'] = $user->id;
         }
-        
-        $checkIncomplete = Order::where('status','incomplete')->where('user_id',$user->id)->first();
+
+        $checkIncomplete = Order::where('status', 'incomplete')->where('user_id', $user->id)->first();
         if ($checkIncomplete) {
             return response()->json(['message' => 'Already incomplete order stored']);
         }
 
-        $carts          = session()->get('cart',[]);
-      	$coupn_discount = getCouponDiscount();
-   
+        $carts          = session()->get('cart', []);
+        $coupn_discount = getCouponDiscount();
+
         $product = [];
         if ($carts) {
             $total          = 0;
             $total_discount = 0;
-            foreach($carts as $key=>$item){
+            foreach ($carts as $key => $item) {
                 $total          += $item['quantity'] * $item['price'];
                 $total_discount += $item['quantity'] * $item['discount'];
                 $product[] = [
@@ -272,106 +275,107 @@ class CheckoutController extends Controller
                     'is_stock'       => $item['is_stock'],
                 ];
             }
-        } 
-        
+        }
+
         $data['date'] = date('Y-m-d');
-       
+
         $assign_user_id = 1;
-        $users = User::whereHas('roles', function($query){
-                            $query->where('roles.name','worker');
-                        })->where('status',1)
-                        ->select('id')
-                        ->pluck('id')->toArray();
-                       
-        $ordering = count($users)-1;
-        if(count($users)==1){
+        $users = User::whereHas('roles', function ($query) {
+            $query->where('roles.name', 'worker');
+        })->where('status', 1)
+            ->select('id')
+            ->pluck('id')->toArray();
+
+        $ordering = count($users) - 1;
+        if (count($users) == 1) {
             $assign_user_id = $users[0];
             $data['assign_user_id'] = $assign_user_id;
-        }else if($ordering>0){
+        } else if ($ordering > 0) {
             $order  = Order::latest()->take($ordering)->get()->pluck('assign_user_id')->toArray();
             $output = array_merge(array_diff($order, $users), array_diff($users, $order));
 
-            if(!empty($output)){
+            if (!empty($output)) {
                 $assign_user_id = $output[0];
                 $data['assign_user_id'] = $assign_user_id;
             } else {
                 $data['assign_user_id'] = $assign_user_id;
             }
-        } 
-        
-        $data['invoice_no']    = rand(111111,999999);
+        }
+
+        $data['invoice_no']    = rand(111111, 999999);
         $data['discount']      = $total_discount + $coupn_discount;
         $data['amount']        = $total_discount + $total;
-        $data['shipping_charge']= 0;
+        $data['shipping_charge'] = 0;
         $data['first_name']    = $req_data['name'] ?? $user->name;
         $data['mobile']        = $req_data['mobile'];
         $data['shipping_address'] = $req_data['address'] ?? '';
         $data['status']        = 'incomplete';
-      	$data['final_amount']  = $total - $coupn_discount;		
-      	
+        $data['final_amount']  = $total - $coupn_discount;
+
         DB::beginTransaction();
         try {
             unset($data['payment_method']);
-            
+
             $order = Order::create($data);
 
-            if (!empty($product)) {    
-                foreach ($product as $key => $item) {                  
-                    if($item['is_stock'] != 0) {
-                  		$stock = $this->util->checkProductStock($item['product_id'], $item['variation_id']);
-                        if($stock < $item['quantity']){
-                            return response()->json(['success'=>false,'msg'=>' Stock Note Available!']);
+            if (!empty($product)) {
+                foreach ($product as $key => $item) {
+                    if ($item['is_stock'] != 0) {
+                        $stock = $this->util->checkProductStock($item['product_id'], $item['variation_id']);
+                        if ($stock < $item['quantity']) {
+                            return response()->json(['success' => false, 'msg' => ' Stock Note Available!']);
                         }
-                    	$this->util->decreaseProductStock($item['product_id'], $item['variation_id'],$item['quantity']);
-                    }                 
-                }             
-			    $order->details()->createMany($product);
-            }    
-          
+                        $this->util->decreaseProductStock($item['product_id'], $item['variation_id'], $item['quantity']);
+                    }
+                }
+                $order->details()->createMany($product);
+            }
+
             $this->modulutil->orderPayment($order, $request->all());
             $this->modulutil->orderstatus($order);
-    	    DB::commit();     
-    	    return response()->json(['message'=>'Incomplete Order Store']);
+            DB::commit();
+            return response()->json(['message' => 'Incomplete Order Store']);
         } catch (\Exception $e) {
             \Log::error('Someting Wrong: ' . $e->getMessage());
         }
     }
 
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         $data = $request->validate([
             'mobile'             => 'digits_between:11,11',
-            'first_name'         => 'required',            
+            'first_name'         => 'required',
             'payment_method'     => 'required',
-            'shipping_address'   => 'required',  
-          	'ip_address'         => '',
+            'shipping_address'   => 'required',
+            'ip_address'         => '',
             'note'               => '',
-          	'delivery_charge_id' => 'required|numeric',          
+            'delivery_charge_id' => 'required|numeric',
         ]);
 
-        if($request->ip_address == null){
+        if ($request->ip_address == null) {
             $data['ip_address'] = $request->ip;
         }
 
         $info         = Information::first();
         $limitMinutes = $info->time_limit ?? 60;
-        
+
         // শুধু latest order fetch (future use এর জন্য)
         $latestByMobile = null;
         if (!empty($request->mobile)) {
             $latestByMobile = Order::where('mobile', $request->mobile)
-                                   ->whereNot('status', 'incomplete')
-                                   ->latest()
-                                   ->first();
+                ->whereNot('status', 'incomplete')
+                ->latest()
+                ->first();
         }
-        
+
         // Restriction check (same mobile / ip within X minutes)
         $appliesMobileCheck = ($info->is_mobile_check == 1) && !empty($request->mobile);
         $appliesIpCheck     = ($info->is_ip_check == 1) && !empty($data['ip_address']);
-        
+
         if ($appliesMobileCheck || $appliesIpCheck) {
             $query = Order::whereNot('status', 'incomplete');
-        
-            $query->where(function($q) use ($appliesMobileCheck, $appliesIpCheck, $request, $data) {
+
+            $query->where(function ($q) use ($appliesMobileCheck, $appliesIpCheck, $request, $data) {
                 $first = true;
                 if ($appliesMobileCheck) {
                     $q->where('mobile', $request->mobile);
@@ -385,11 +389,11 @@ class CheckoutController extends Controller
                     }
                 }
             });
-        
+
             $recentOrder = $query->where('created_at', '>=', now()->subMinutes($limitMinutes))
-                                 ->latest()
-                                 ->first();
-        
+                ->latest()
+                ->first();
+
             if ($recentOrder) {
                 $minutesPassed = now()->diffInMinutes($recentOrder->created_at);
                 $remaining     = max(0, $limitMinutes - $minutesPassed);
@@ -405,12 +409,12 @@ class CheckoutController extends Controller
             $baseUsername = strtolower(str_replace(' ', '', $data['first_name']));
             $username     = $baseUsername;
             $counter      = 1;
-        
+
             while (User::where('username', $username)->exists()) {
                 $username = $baseUsername . $counter;
                 $counter++;
             }
-        
+
             $user = User::updateOrCreate(
                 ['mobile' => $request->mobile],
                 [
@@ -419,18 +423,18 @@ class CheckoutController extends Controller
                     'status'     => 1,
                 ]
             );
-        
+
             $data['user_id'] = $user->id;
         }
 
-        $carts          = session()->get('cart',[]);
-      	$coupn_discount = getCouponDiscount();
-   
+        $carts          = session()->get('cart', []);
+        $coupn_discount = getCouponDiscount();
+
         $product = [];
         if ($carts) {
             $total          = 0;
             $total_discount = 0;
-            foreach($carts as $key=>$item){
+            foreach ($carts as $key => $item) {
                 $total          += $item['quantity'] * $item['price'];
                 $total_discount += $item['quantity'] * $item['discount'];
                 $product[] = [
@@ -443,73 +447,73 @@ class CheckoutController extends Controller
                     'is_stock'       => $item['is_stock'],
                 ];
             }
-        } 
+        }
 
-      	$charge = DeliveryCharge::find($data['delivery_charge_id']);
-      	$charge = $charge ? $charge->amount : 0;
+        $charge = DeliveryCharge::find($data['delivery_charge_id']);
+        $charge = $charge ? $charge->amount : 0;
         $data['date'] = date('Y-m-d');
-        
+
         // Order Assign Among Users Start
         $assign_user_id = 1;
-        $users = User::whereHas('roles', function($query){
-                            $query->where('roles.name','worker');
-                        })->where('status',1)
-                        ->select('id')
-                        ->pluck('id')->toArray();
-                       
-        $ordering = count($users)-1;
-        if(count($users)==1){
+        $users = User::whereHas('roles', function ($query) {
+            $query->where('roles.name', 'worker');
+        })->where('status', 1)
+            ->select('id')
+            ->pluck('id')->toArray();
+
+        $ordering = count($users) - 1;
+        if (count($users) == 1) {
             $assign_user_id = $users[0];
             $data['assign_user_id'] = $assign_user_id;
-        }else if($ordering>0){
+        } else if ($ordering > 0) {
             $order  = Order::latest()->take($ordering)->get()->pluck('assign_user_id')->toArray();
             $output = array_merge(array_diff($order, $users), array_diff($users, $order));
 
-            if(!empty($output)){
+            if (!empty($output)) {
                 $assign_user_id = $output[0];
                 $data['assign_user_id'] = $assign_user_id;
             } else {
                 $data['assign_user_id'] = $assign_user_id;
             }
         }
-        
-        $data['invoice_no']     = rand(111111,999999);
+
+        $data['invoice_no']     = rand(111111, 999999);
         $data['discount']       = $total_discount + $coupn_discount;
         $data['amount']         = $total_discount + $total;
-        $data['shipping_charge']= $charge;
-      	$data['final_amount']   = $total + $charge - $coupn_discount;		
-      	
+        $data['shipping_charge'] = $charge;
+        $data['final_amount']   = $total + $charge - $coupn_discount;
+
         DB::beginTransaction();
         try {
             unset($data['payment_method']);
-            
-            $order = Order::where('status','incomplete')->where('user_id',$user->id)->first();
 
-            if(!$order){
+            $order = Order::where('status', 'incomplete')->where('user_id', $user->id)->first();
+
+            if (!$order) {
                 $data['status'] = 'pending';
                 $order          = Order::create($data);
 
-                if (!empty($product)) {    
+                if (!empty($product)) {
                     foreach ($product as $key => $item) {
                         $pro = Product::find($item['product_id']);
-                        if($pro->stock_quantity < $item['quantity']){
-                            return response()->json(['success'=>false,'msg'=>' Stock Note Available!']);
-                        }else{
+                        if ($pro->stock_quantity < $item['quantity']) {
+                            return response()->json(['success' => false, 'msg' => ' Stock Note Available!']);
+                        } else {
                             $pro->stock_quantity -= $item['quantity'];
                             $pro->save();
                         }
-                    }             
-    			    $order->details()->createMany($product);
-                }  
-            }else{  
-    			$order->details()->delete();
-    			$order->details()->createMany($product);
+                    }
+                    $order->details()->createMany($product);
+                }
+            } else {
+                $order->details()->delete();
+                $order->details()->createMany($product);
 
-    			foreach ($product as $key => $item) {
+                foreach ($product as $key => $item) {
                     $pro = Product::find($item['product_id']);
-                    if($pro->stock_quantity < $item['quantity']){
-                        return response()->json(['success'=>false,'msg'=>' Stock Note Available!']);
-                    }else{
+                    if ($pro->stock_quantity < $item['quantity']) {
+                        return response()->json(['success' => false, 'msg' => ' Stock Note Available!']);
+                    } else {
                         $pro->stock_quantity -= $item['quantity'];
                         $pro->save();
                     }
@@ -519,18 +523,18 @@ class CheckoutController extends Controller
                 $data['invoice_no'] = $order->invoice_no;
                 $order->update($data);
             }
-          
+
             $this->modulutil->orderPayment($order, $request->all());
             $this->modulutil->orderstatus($order);
-    	    DB::commit();     
-    	    
-    	    // Facebook CAPI Purchase
-    	    try {
+            DB::commit();
+
+            // Facebook CAPI Purchase
+            try {
                 $eventId = "PUR_" . $order->id;
-            
+
                 $contents   = [];
                 $contentIds = [];
-            
+
                 foreach ($order->details as $sellProduct) {
                     $contents[] = [
                         'id'         => $sellProduct->product_id,
@@ -539,21 +543,21 @@ class CheckoutController extends Controller
                     ];
                     $contentIds[] = $sellProduct->product_id;
                 }
-            
+
                 $customerEmail     = strtolower(trim($order->user->email ?? ''));
                 $customerPhone     = preg_replace('/\D/', '', $order->mobile ?? '');
                 $customerFirstName = strtolower(trim($order->first_name ?? ''));
                 $externalId        = $order->user_id ?? null;
-            
+
                 $userData = [
                     'em'          => [$customerEmail ? hash('sha256', $customerEmail) : null],
                     'ph'          => [$customerPhone ? hash('sha256', $customerPhone) : null],
                     'fn'          => [$customerFirstName ? hash('sha256', $customerFirstName) : null],
                     'external_id' => [$externalId ? hash('sha256', $externalId) : null],
                 ];
-            
+
                 FacebookConversion::sendPurchase([
-                    'currency'      => 'BDT', 
+                    'currency'      => 'BDT',
                     'value'         => $order->final_amount,
                     'content_ids'   => $contentIds,
                     'contents'      => $contents,
@@ -563,34 +567,32 @@ class CheckoutController extends Controller
                     'action_source' => 'website',
                     'user_data'     => $userData
                 ], $eventId);
-            
+
                 \Log::info('Facebook CAPI Purchase tracked', [
                     'order_id' => $order->id,
                     'amount'   => $order->final_amount,
                     'items'    => count($contents)
                 ]);
-            
             } catch (\Exception $e) {
                 \Log::error('Facebook CAPI Purchase Error: ' . $e->getMessage());
             }
-    	    
-            session()->put('cart',[]);
-            session()->put('coupon_discount',null);
-            session()->put('discount_type',null); 
-            
-            $msg    = 'You Got An Order';
-          	$number = $order->mobile;
-        	$success= SendSms($number ,$msg);  
-                  
-            $url = route('front.confirmOrder',[$order->id]);
-            return response()->json(['success'=>true,'msg'=>'Order Create successfully!','url'=>$url]);
 
+            session()->put('cart', []);
+            session()->put('coupon_discount', null);
+            session()->put('discount_type', null);
+
+            $msg    = 'You Got An Order';
+            $number = $order->mobile;
+            $success = SendSms($number, $msg);
+
+            $url = route('front.confirmOrder', [$order->id]);
+            return response()->json(['success' => true, 'msg' => 'Order Create successfully!', 'url' => $url]);
         } catch (\Exception $e) {
             DB::rollback();
-            return response()->json(['success'=>false,'msg'=>$e->getMessage()]);
+            return response()->json(['success' => false, 'msg' => $e->getMessage()]);
         }
     }
-    
+
     /**
      * ✅ UPDATED storeData – এখানে variant + after_discount অনুযায়ী unit_price/final_amount হিসাব হচ্ছে
      */
@@ -602,24 +604,23 @@ class CheckoutController extends Controller
             'payment_method'     => '',
             'shipping_address'   => 'required',
             'note'               => '',
-          	'delivery_charge_id' => 'required|numeric',
+            'delivery_charge_id' => 'required|numeric',
             'prd_id'             => 'required|numeric',
             'variation_id'       => 'required|numeric',
             'quantity'           => 'nullable|numeric',
         ]);
 
         // User create / assign
-        if(empty(auth()->user()->id)){
-        	$user = User::create([
+        if (empty(auth()->user()->id)) {
+            $user = User::create([
                 'first_name'       => $request->first_name,
                 'mobile'           => $request->mobile,
                 'shipping_address' => $request->shipping_address,
                 'note'             => $request->note
             ]);
             $data['user_id'] = $user->id;
-
         } else {
-        	$data['user_id'] = auth()->user()->id;
+            $data['user_id'] = auth()->user()->id;
         }
 
         // Product & variation
@@ -673,14 +674,14 @@ class CheckoutController extends Controller
 
         // Delivery charge
         $charge = DeliveryCharge::find($data['delivery_charge_id']);
-      	$charge = $charge ? $charge->amount : 0;
+        $charge = $charge ? $charge->amount : 0;
         $data['date'] = date('Y-m-d');
 
         // Assign user (role_id 8)
         $usrs           = DB::table('model_has_roles')->where('role_id', 8)->get();
         $verified_users = [];
 
-        foreach($usrs as $u) {
+        foreach ($usrs as $u) {
             $test = DB::table('users')->where('id', $u->model_id)->first();
             if ($test && $test->status == 1) {
                 $verified_users[] = $u->model_id;
@@ -695,73 +696,73 @@ class CheckoutController extends Controller
         }
 
         // Amount calculation
-        $data['invoice_no']      = rand(111111,999999);
+        $data['invoice_no']      = rand(111111, 999999);
         $data['discount']        = $totalDiscount;
         $data['amount']          = $subtotal + $totalDiscount; // চাইলে শুধু $subtotal করতে পারো
         $data['shipping_charge'] = $charge;
-      	$data['final_amount']    = $subtotal + $charge;
+        $data['final_amount']    = $subtotal + $charge;
 
         DB::beginTransaction();
         try {
-            unset($data['payment_method']);            
+            unset($data['payment_method']);
 
             $order = Order::create($data);
 
             if (!empty($pr_data)) {
-			    $order->details()->create($pr_data);
+                $order->details()->create($pr_data);
             }
 
             $this->modulutil->orderPayment($order, $request->all());
             $this->modulutil->orderstatus($order);
-            
-      	    $url = route('front.confirmOrder',[$order->id]);
-            session()->put('cart',[]);
-            session()->put('coupon_discount',null);
-            session()->put('discount_type',null);
-            
+
+            $url = route('front.confirmOrder', [$order->id]);
+            session()->put('cart', []);
+            session()->put('coupon_discount', null);
+            session()->put('discount_type', null);
+
             // Optional SMS
             // $msg    = 'You Got An Order';
-          	// $number = $order->mobile;
+            // $number = $order->mobile;
             // $success= SendSms($number ,$msg);
-            
+
             DB::commit();
             return response()->json([
                 'success' => true,
                 'msg'     => 'Checkout Successfully..!!',
                 'url'     => $url,
             ]);
-            
         } catch (\Exception $e) {
             DB::rollback();
-            return response()->json(['success'=>false,'msg'=>$e->getMessage()]);
+            return response()->json(['success' => false, 'msg' => $e->getMessage()]);
         }
     }
-  
-    public function StoreChk(Request $request){
-      
+
+    public function StoreChk(Request $request)
+    {
+
         $this->validate($request, [
-    		'first_name'         => 'required',
+            'first_name'         => 'required',
             'mobile'             => 'required',
             'shipping_address'   => 'required',
             'delivery_charge_id' => 'required'
         ]);
-      
+
         $user = User::create([
             'first_name' => $request->input('firstname'),
             'last_name'  => $request->input('lastname'),
             'email'      => $request->input('email'),
-            'mobile'     => $request->input('mobile'),            
+            'mobile'     => $request->input('mobile'),
             'note'       => $request->input('note'),
         ]);
 
-        $carts          = session()->get('cart',[]);
-      	$coupn_discount = getCouponDiscount();
-   
+        $carts          = session()->get('cart', []);
+        $coupn_discount = getCouponDiscount();
+
         $product = [];
         if ($carts) {
             $total          = 0;
             $total_discount = 0;
-            foreach($carts as $key=>$item){
+            foreach ($carts as $key => $item) {
                 $total          += $item['quantity'] * $item['price'];
                 $total_discount += $item['quantity'] * $item['discount'];
                 $product[] = [
@@ -776,15 +777,15 @@ class CheckoutController extends Controller
 
         $data = [];
 
-        $delivery_charge_id = $request->input('delivery_charge_id');        
-        $charge = DeliveryCharge::find($delivery_charge_id);        
-      	$charge = $charge ? $charge->amount : 0;
+        $delivery_charge_id = $request->input('delivery_charge_id');
+        $charge = DeliveryCharge::find($delivery_charge_id);
+        $charge = $charge ? $charge->amount : 0;
 
         $data['date']    = date('Y-m-d');
         $data['user_id'] = $user->id;
 
         $usr = DB::table('model_has_roles')->where('role_id', 8)->inRandomOrder()->first();
-        if($usr) {
+        if ($usr) {
             $data['assign_user_id'] = $usr->model_id;
         } else {
             $data['assign_user_id'] = 1;
@@ -793,7 +794,7 @@ class CheckoutController extends Controller
         $data['invoice_no']       = time();
         $data['discount']         = $total_discount + $coupn_discount;
         $data['amount']           = $total_discount + $total;
-        $data['delivery_charge_id']= $request->input('delivery_charge_id');
+        $data['delivery_charge_id'] = $request->input('delivery_charge_id');
         $data['shipping_charge']  = $charge;
         $data['final_amount']     = $total + $charge - $coupn_discount;
 
@@ -808,14 +809,14 @@ class CheckoutController extends Controller
         try {
             unset($data['payment_method']);
             $order = Order::create($data);
-  
+
             if (!empty($product)) {
                 foreach ($product as $key => $item) {
                     $stock = $this->util->checkProductStock($item['product_id'], $item['variation_id']);
-                    if($stock < $item['quantity']){                        
-                        return response()->json(['success'=>false,'msg'=>' Stock Note Available!']);
+                    if ($stock < $item['quantity']) {
+                        return response()->json(['success' => false, 'msg' => ' Stock Note Available!']);
                     }
-                    $this->util->decreaseProductStock($item['product_id'], $item['variation_id'],$item['quantity']);
+                    $this->util->decreaseProductStock($item['product_id'], $item['variation_id'], $item['quantity']);
                 }
                 $order->details()->createMany($product);
             }
@@ -831,55 +832,54 @@ class CheckoutController extends Controller
                 'method'     => 'paypal',
                 'date'       => date('Y-m-d'),
                 'note'       => ''
-            ]);          
- 
+            ]);
+
             $order->payment_status = 'Paypal Completed';
             $order->save();
-  
-            DB::commit();  
-              
-            session()->put('cart',[]);
-            session()->put('coupon_discount',null);
-            session()->put('discount_type',null);
-            
-            $url = route('front.confirmOrder',[$order->id]);
-            return response()->json(['success'=>true,'msg'=>'Order Create successfully!','url'=>$url]);
-  
+
+            DB::commit();
+
+            session()->put('cart', []);
+            session()->put('coupon_discount', null);
+            session()->put('discount_type', null);
+
+            $url = route('front.confirmOrder', [$order->id]);
+            return response()->json(['success' => true, 'msg' => 'Order Create successfully!', 'url' => $url]);
         } catch (\Exception $e) {
             DB::rollback();
-            return response()->json(['success'=>false,'msg'=>$e->getMessage()]);
+            return response()->json(['success' => false, 'msg' => $e->getMessage()]);
         }
-
     }
-  
-  	public function getCouponDiscount(Request $request){
+
+    public function getCouponDiscount(Request $request)
+    {
         $data = $request->validate([
             'code' => 'required'
         ]);
-        
+
         $cart  = session()->get('cart');
         $total = 0;
-        if($cart){
-            foreach($cart as $id=>$item){
+        if ($cart) {
+            foreach ($cart as $id => $item) {
                 $total += $item['price'] * $item['quantity'];
             }
         }
-        
-        $item = CouponCode::where('code',$request->code)
-                    ->where(function($row) use($total){
-                        $row->where('minimum_amount','0')
-                            ->orWhereNull('minimum_amount')
-                            ->orWhere('minimum_amount','<=',$total);
-                    })
-                    ->whereDate('start','<=', date('Y-m-d'))
-                    ->whereDate('end','>=', date('Y-m-d'))->first();
-        
-        if($item){
+
+        $item = CouponCode::where('code', $request->code)
+            ->where(function ($row) use ($total) {
+                $row->where('minimum_amount', '0')
+                    ->orWhereNull('minimum_amount')
+                    ->orWhere('minimum_amount', '<=', $total);
+            })
+            ->whereDate('start', '<=', date('Y-m-d'))
+            ->whereDate('end', '>=', date('Y-m-d'))->first();
+
+        if ($item) {
             session()->put('coupon_discount', $item->amount);
             session()->put('discount_type', $item->discount_type);
-            return response()->json(['success'=>true,'msg'=>'You Got Coupon Discount!']);
-        }else{
-            return response()->json(['success'=>false,'msg'=>'Not Found Any Coupon Discount!']);
+            return response()->json(['success' => true, 'msg' => 'You Got Coupon Discount!']);
+        } else {
+            return response()->json(['success' => false, 'msg' => 'Not Found Any Coupon Discount!']);
         }
     }
 
@@ -938,25 +938,7 @@ class CheckoutController extends Controller
             ], 422);
         }
 
-            $productContent = $honeyPage->content['product'];
-
-        // #region agent log
-        $logFile = '/home/jalal/laravel-projects/minibeebd/.cursor/debug.log';
-        $logData = [
-            'id' => 'log_' . time() . '_' . uniqid(),
-            'timestamp' => time() * 1000,
-            'location' => 'CheckoutController.php:honeyCheckout',
-            'message' => 'Price calculation start',
-            'data' => [
-                'honeyPage_regular_price' => $productContent['regular_price'] ?? null,
-                'honeyPage_offer_price' => $productContent['offer_price'] ?? null,
-                'product_id' => $productContent['product_id'] ?? null,
-            ],
-            'runId' => 'run1',
-            'hypothesisId' => 'A'
-        ];
-        file_put_contents($logFile, json_encode($logData) . "\n", FILE_APPEND);
-        // #endregion
+        $productContent = $honeyPage->content['product'];
 
         DB::beginTransaction();
         try {
@@ -1019,7 +1001,7 @@ class CheckoutController extends Controller
                 // First check if honey page has offer_price or regular_price
                 $honeyPageOfferPrice = !empty($productContent['offer_price']) ? (float) $productContent['offer_price'] : null;
                 $honeyPageRegularPrice = !empty($productContent['regular_price']) ? (float) $productContent['regular_price'] : null;
-                
+
                 // Honey page prices have highest priority - use them if available
                 if ($honeyPageOfferPrice !== null && $honeyPageOfferPrice > 0) {
                     // Use honey page offer_price (highest priority)
@@ -1097,7 +1079,7 @@ class CheckoutController extends Controller
                 ];
 
                 // Use static pricing
-                $finalPrice = !empty($staticProductData['offer_price']) 
+                $finalPrice = !empty($staticProductData['offer_price'])
                     ? $staticProductData['offer_price']
                     : $staticProductData['regular_price'];
                 $basePriceForDiscount = $staticProductData['regular_price'];
@@ -1172,7 +1154,7 @@ class CheckoutController extends Controller
             $usrs = DB::table('model_has_roles')->where('role_id', 8)->get();
             $verified_users = [];
 
-            foreach($usrs as $u) {
+            foreach ($usrs as $u) {
                 $test = DB::table('users')->where('id', $u->model_id)->first();
                 if ($test && $test->status == 1) {
                     $verified_users[] = $u->model_id;
@@ -1237,11 +1219,11 @@ class CheckoutController extends Controller
                     $screenshot = $request->file('screenshot');
                     $fileName = time() . '_' . $screenshot->getClientOriginalName();
                     $uploadPath = public_path('payment_screenshots');
-                    
+
                     if (!file_exists($uploadPath)) {
                         mkdir($uploadPath, 0755, true);
                     }
-                    
+
                     $screenshot->move($uploadPath, $fileName);
                     $screenshotPath = 'payment_screenshots/' . $fileName;
                 }
@@ -1279,13 +1261,13 @@ class CheckoutController extends Controller
 
             // 13. Return Success Response
             $url = route('front.confirmOrderlanding', $order->id);
-            
+
             return response()->json([
                 'success' => true,
                 'msg' => 'Order Create successfully!',
-                'url' => $url
+                'url' => $url,
+                'order_id' => $order->id
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
@@ -1332,11 +1314,11 @@ class CheckoutController extends Controller
                 $screenshot = $request->file('screenshot');
                 $fileName = time() . '_' . $screenshot->getClientOriginalName();
                 $uploadPath = public_path('incomplete_order_screenshots');
-                
+
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
-                
+
                 $screenshot->move($uploadPath, $fileName);
                 $data['screenshot_path'] = 'incomplete_order_screenshots/' . $fileName;
             }
@@ -1354,7 +1336,6 @@ class CheckoutController extends Controller
                 'success' => true,
                 'msg' => 'Incomplete order saved'
             ]);
-
         } catch (\Exception $e) {
             // Fail silently to not disrupt user experience
             \Log::error('Failed to save incomplete order: ' . $e->getMessage());
@@ -1364,5 +1345,4 @@ class CheckoutController extends Controller
             ], 500);
         }
     }
-
 }
