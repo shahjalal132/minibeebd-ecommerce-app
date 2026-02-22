@@ -1201,6 +1201,7 @@
                     @endforeach
                 @else
                     <!-- Default FAQ items -->
+                    
                     <div class="opacity-0 animate-fadeIn delay-100">
                         <div class="ornate-border">
                             <div class="ornate-corner top-left"></div>
