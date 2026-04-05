@@ -667,9 +667,9 @@
 
             {{-- Order now --}}
             <div class="text-center mb-6 mt-12">
-                <a href="#checkout"
-                class="bg-honey hover:bg-honeyDark text-white px-10 py-5 rounded-2xl shadow-lg text-xl font-semibold">অর্ডার
-                করুন</a>
+                <button type="button" data-scroll-to-checkout
+                    class="cursor-pointer bg-honey hover:bg-honeyDark text-white px-10 py-5 rounded-2xl shadow-lg text-xl font-semibold">অর্ডার
+                    করুন</button>
             </div>
 
         </div>
@@ -841,9 +841,9 @@
         </div>
 
         <div class="text-center mt-16">
-            <a href="#checkout"
-                class="bg-honey hover:bg-honeyDark text-white px-10 py-5 rounded-2xl shadow-lg text-xl font-semibold">অর্ডার
-                করুন</a>
+            <button type="button" data-scroll-to-checkout
+                class="cursor-pointer bg-honey hover:bg-honeyDark text-white px-10 py-5 rounded-2xl shadow-lg text-xl font-semibold">অর্ডার
+                করুন</button>
         </div>
     </section>
 
@@ -1285,9 +1285,9 @@
                             <p class="text-lg mb-8">{{ $honeyPage->content['product']['short_description'] }}</p>
                         @endif
 
-                        <a href="#checkout"
-                            class="bg-honey hover:bg-honeyDark text-white px-8 py-4 rounded-xl text-lg font-semibold inline-block">অর্ডার
-                            করুন</a>
+                        <button type="button" data-scroll-to-checkout
+                            class="cursor-pointer bg-honey hover:bg-honeyDark text-white px-8 py-4 rounded-xl text-lg font-semibold inline-block">অর্ডার
+                            করুন</button>
                     </div>
                 </div>
             </div>
@@ -1472,6 +1472,20 @@
     </section>
 
     <script>
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('[data-scroll-to-checkout]')) {
+                return;
+            }
+            e.preventDefault();
+            const checkout = document.getElementById('checkout');
+            if (checkout) {
+                checkout.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState(null, '', '#checkout');
+                }
+            }
+        });
+
         // Debounce utility function (1.5 second delay)
         function debounce(func, wait) {
             let timeout;
