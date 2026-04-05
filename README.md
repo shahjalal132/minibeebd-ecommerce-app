@@ -59,8 +59,8 @@ A powerful, custom-built Laravel solution for comprehensive e-commerce managemen
 ### Setup Steps
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
-   cd minibeebd
+   git clone https://github.com/shahjalal132/minibeebd-ecommerce-app.git
+   cd minibeebd-ecommerce-app
    ```
 
 2. **Install PHP dependencies:**
