@@ -259,6 +259,10 @@
 
             fbq('init', '{{ setting('fb_pixel_id') }}');
             fbq('track', 'PageView');
+            fbq('track', 'Purchase', {
+                value: {{ $order->final_amount ?? $order->amount ?? 0 }},
+                currency: 'BDT'
+            });
         </script>
 
         <noscript>
